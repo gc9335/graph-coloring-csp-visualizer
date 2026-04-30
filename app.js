@@ -288,19 +288,11 @@ function renderVariantStrip() {
 
 function renderHeroMetrics() {
   const frame = activeFrame();
-  const graph = activeGraph();
-  const metrics = state.trace.metrics;
   const heroItems = [
-    ["当前算法", state.variantId, activeVariant().label],
-    ["图实例", graph.name, `${graph.nodes.length} 个节点 · ${graph.edges.length} 条边`],
-    ["搜索节点", String(metrics.searchNodes), `回放事件 ${state.trace.events.length} · 最大深度 ${metrics.maxDepth}`],
-    [
-      "运行结果",
-      state.trace.success ? "成功" : "失败",
-      state.trace.success
-        ? `${metrics.backtracks} 次回溯 · ${metrics.runtimeMs.toFixed(1)} ms`
-        : `颜色上限 ${state.colorLimit} 下未找到可行着色`,
-    ],
+    ["当前算法", `${state.variantId}`, activeVariant().label],
+    ["当前图", activeGraph().name, activeGraph().description],
+    ["回放事件数", String(state.trace.events.length), "来自本次求解生成的完整 trace"],
+    ["回溯次数", String(state.trace.metrics.backtracks), state.trace.success ? "找到可行着色" : "当前颜色上限无解"],
   ];
   els.heroMetrics.innerHTML = heroItems
     .map(
@@ -313,7 +305,7 @@ function renderHeroMetrics() {
       `,
     )
     .join("");
-  els.stageCaption.textContent = `${graph.description} 当前聚焦：${frame.title}`;
+  els.stageCaption.textContent = `${activeGraph().description} 当前事件：${frame.title}`;
 }
 
 function renderControls() {
@@ -324,7 +316,7 @@ function renderControls() {
   els.nodeCount.value = String(state.nodeCount);
   els.densityRange.value = String(state.density);
   els.densityLabel.textContent = state.density.toFixed(2);
-  els.stepLabel.textContent = `步骤 ${state.step + 1} / ${state.trace.events.length} · ${eventLabels[activeFrame().type] ?? activeFrame().title}`;
+  els.stepLabel.textContent = `步骤 ${state.step + 1} / ${state.trace.events.length}`;
   els.progressFill.style.width = `${((state.step + 1) / state.trace.events.length) * 100}%`;
   els.playBtn.textContent = state.playing ? "暂停" : "播放";
   els.prevBtn.disabled = state.step === 0;
@@ -420,7 +412,7 @@ function updateDraggedStageNode(event) {
 function renderInfo() {
   const variant = activeVariant();
   const frame = activeFrame();
-  els.variantTitle.textContent = `${variant.id} · ${variant.label}`;
+  els.variantTitle.textContent = `${variant.id} · ${variant.name}`;
   els.variantCore.textContent = variant.coreLogic;
   els.variantVisual.textContent = variant.visualization;
   els.variantTime.textContent = variant.complexity.time;
@@ -433,9 +425,9 @@ function renderInfo() {
     : `<span class="meta-pill">根状态</span>`;
 
   const metaBits = [];
-  if (frame.meta?.heuristics?.length) metaBits.push(...frame.meta.heuristics.map((item) => `启发式 · ${item}`));
-  if (frame.meta?.candidates?.length) metaBits.push(...frame.meta.candidates.map((item) => `${item.id} · 域 ${item.domainSize} · 度 ${item.degree}`));
-  if (frame.meta?.lcvScores?.length) metaBits.push(...frame.meta.lcvScores.map((item) => `${item.colorName} · 影响值 ${item.impact}`));
+  if (frame.meta?.heuristics?.length) metaBits.push(...frame.meta.heuristics.map((item) => `启发式: ${item}`));
+  if (frame.meta?.candidates?.length) metaBits.push(...frame.meta.candidates.map((item) => `${item.id} |D|=${item.domainSize}, deg=${item.degree}`));
+  if (frame.meta?.lcvScores?.length) metaBits.push(...frame.meta.lcvScores.map((item) => `${item.colorName} impact=${item.impact}`));
   if (!metaBits.length) metaBits.push("当前步骤没有额外启发式元数据");
   els.eventMeta.innerHTML = metaBits.map((item) => `<span class="meta-pill">${item}</span>`).join("");
 }
@@ -464,7 +456,7 @@ function renderDomainMatrix() {
               const classes = ["domain-cell"];
               if (isAvailable) classes.push("available");
               if (isSelected) classes.push("selected");
-              return `<div class="${classes.join(" ")}" style="${isAvailable ? `background:${color.hex};` : ""}">${isAvailable ? color.name : "—"}</div>`;
+              return `<div class="${classes.join(" ")}" style="${isAvailable ? `background:${color.hex};` : ""}">${isAvailable ? color.name : "×"}</div>`;
             })
             .join("")}
         </div>
@@ -506,7 +498,7 @@ function buildSearchTree(trace, uptoStep) {
     parentId: null,
     depth: 0,
     kind: "root",
-    title: "起点",
+    title: "Root",
     subtitle: "搜索入口",
     color: "#fff7e8",
     border: "#0b4f6c",
