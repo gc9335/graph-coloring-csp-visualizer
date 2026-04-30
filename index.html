@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>图着色 CSP 六版本动态实验台</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="backdrop"></div>
+    <main class="shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Constraint Search Studio</p>
+          <h1>图着色 CSP 六版本动态实验台</h1>
+          <p class="summary">
+            把 V0 到 V5 的选点、试色、域削减、剪枝、回溯和伪代码高亮绑定到同一条时间轴上，专门用于讲清楚算法过程，而不只是展示最后答案。
+          </p>
+        </div>
+        <div class="hero-metrics" id="hero-metrics"></div>
+      </header>
+
+      <section class="variant-strip" id="variant-strip"></section>
+
+      <section class="control-panel panel">
+        <div class="control-row">
+          <label>
+            <span>示例图</span>
+            <select id="graph-select"></select>
+          </label>
+          <label>
+            <span>颜色上限 M</span>
+            <input id="color-limit" type="number" min="2" max="6" />
+          </label>
+          <label>
+            <span>播放速度</span>
+            <input id="speed-range" type="range" min="180" max="1400" step="20" />
+            <strong id="speed-label"></strong>
+          </label>
+          <label>
+            <span>随机节点数</span>
+            <input id="node-count" type="number" min="4" max="16" />
+          </label>
+          <label>
+            <span>随机连边概率</span>
+            <input id="density-range" type="range" min="0.12" max="0.6" step="0.02" />
+            <strong id="density-label"></strong>
+          </label>
+        </div>
+        <div class="control-row compact">
+          <button id="random-btn" type="button">随机生成图</button>
+          <button id="restart-btn" type="button">重新计算</button>
+          <button id="prev-btn" type="button">上一步</button>
+          <button id="play-btn" type="button">播放</button>
+          <button id="next-btn" type="button">下一步</button>
+          <div class="step-status">
+            <span id="step-label"></span>
+            <div class="progress"><i id="progress-fill"></i></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="dashboard">
+        <article class="panel stage-panel">
+          <div class="panel-head">
+            <h2>搜索主舞台</h2>
+            <p id="stage-caption"></p>
+          </div>
+          <svg id="graph-stage" viewBox="0 0 1000 720" aria-label="graph coloring stage"></svg>
+          <div class="legend" id="color-legend"></div>
+        </article>
+
+        <article class="panel info-panel">
+          <div class="panel-head">
+            <h2>算法说明</h2>
+            <p>核心逻辑、图形化说明与复杂度会随当前算法版本联动。</p>
+          </div>
+          <div class="info-block">
+            <h3 id="variant-title"></h3>
+            <p id="variant-core"></p>
+          </div>
+          <div class="info-block">
+            <h3>图形化展示说明</h3>
+            <p id="variant-visual"></p>
+          </div>
+          <div class="info-grid">
+            <div>
+              <h3>时间复杂度</h3>
+              <p id="variant-time"></p>
+            </div>
+            <div>
+              <h3>空间复杂度</h3>
+              <p id="variant-space"></p>
+            </div>
+          </div>
+          <div class="info-grid">
+            <div>
+              <h3>当前事件</h3>
+              <p id="event-title"></p>
+              <p id="event-detail" class="muted"></p>
+            </div>
+            <div>
+              <h3>调用栈</h3>
+              <div id="stack-view" class="stack-view"></div>
+            </div>
+          </div>
+          <div class="info-block">
+            <h3>启发式现场</h3>
+            <div id="event-meta" class="event-meta"></div>
+          </div>
+        </article>
+
+        <article class="panel timeline-panel">
+          <div class="panel-head">
+            <h2>时间轴</h2>
+            <p>点击任意步骤可跳转到对应的算法状态。</p>
+          </div>
+          <div id="timeline" class="timeline"></div>
+        </article>
+
+        <article class="panel pseudo-panel">
+          <div class="panel-head">
+            <h2>伪代码联动</h2>
+            <p>当前动画步骤会同步高亮对应的伪代码行。</p>
+          </div>
+          <ol id="pseudocode-list" class="pseudocode-list"></ol>
+        </article>
+
+        <article class="panel matrix-panel">
+          <div class="panel-head">
+            <h2>域状态矩阵</h2>
+            <p>FC、MRV 和 LCV 的效果会直接反映在每个节点的可用颜色域上。</p>
+          </div>
+          <div id="domain-matrix" class="domain-matrix"></div>
+        </article>
+
+        <article class="panel tree-panel">
+          <div class="panel-head">
+            <h2>搜索树 / 剪枝树</h2>
+            <p>每次成功着色都会扩展一条分支；死路、域清空和团下界都会以红色终止标记固定留在树上。</p>
+          </div>
+          <div id="tree-legend" class="tree-legend"></div>
+          <div class="tree-stage-wrap" id="tree-stage-wrap">
+            <svg id="search-tree" viewBox="0 0 1200 720" aria-label="search tree"></svg>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
