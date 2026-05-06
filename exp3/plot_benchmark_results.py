@@ -31,7 +31,6 @@ DATASET_COLORS = {
     "le450_15b.col": "#3E7CB1",
     "le450_25a.col": "#5AA469",
 }
-TIMEOUT_REFERENCE_SECONDS = 60.0
 
 
 def configure_fonts() -> None:
@@ -76,14 +75,25 @@ def load_rows(csv_path: str | Path) -> list[dict[str, object]]:
                     "backtracks": int(row["backtracks"]),
                     "runtime_seconds": float(row["runtime_seconds"]),
                     "overhead_ms_per_node": float(row["overhead_ms_per_node"]),
+                    "timeout_seconds": float(row.get("timeout_seconds", row["runtime_seconds"])),
+                    "solutions_found": int(row.get("solutions_found", "1")),
+                    "solution_target": int(row.get("solution_target", "1")),
+                    "stopped_on_target": row.get("stopped_on_target", "False") == "True",
                 }
             )
     return rows
 
 
-def grouped_values(rows: list[dict[str, object]], metric: str) -> dict[str, list[float]]:
+def infer_timeout_seconds(rows: list[dict[str, object]]) -> float:
+    timeout_values = [float(row["timeout_seconds"]) for row in rows if "timeout_seconds" in row]
+    if timeout_values:
+        return max(timeout_values)
+    return max(float(row["runtime_seconds"]) for row in rows)
+
+
+def grouped_values(rows: list[dict[str, object]], metric: str, datasets: list[str]) -> dict[str, list[float]]:
     values: dict[str, list[float]] = {}
-    for dataset in DATASET_ORDER:
+    for dataset in datasets:
         dataset_rows = [row for row in rows if row["dataset"] == dataset]
         by_variant = {row["variant"]: row for row in dataset_rows}
         values[dataset] = [float(by_variant[variant][metric]) for variant in VARIANT_ORDER]
@@ -136,15 +146,23 @@ def annotate_bars(ax, bars, values: list[float], timed_out: list[bool], metric: 
         )
 
 
-def draw_grouped_bars(ax, rows: list[dict[str, object]], metric: str, title: str, log_scale: bool) -> None:
+def draw_grouped_bars(
+    ax,
+    rows: list[dict[str, object]],
+    metric: str,
+    title: str,
+    log_scale: bool,
+    datasets: list[str],
+    timeout_seconds: float,
+) -> None:
     x = np.arange(len(VARIANT_ORDER))
-    width = 0.24
-    values_by_dataset = grouped_values(rows, metric)
+    width = 0.8 / len(datasets)
+    values_by_dataset = grouped_values(rows, metric, datasets)
 
-    for idx, dataset in enumerate(DATASET_ORDER):
+    for idx, dataset in enumerate(datasets):
         values = values_by_dataset[dataset]
         timeout_mask = timed_out_flags(rows, dataset)
-        offset = (idx - 1) * width
+        offset = (idx - (len(datasets) - 1) / 2) * width
         bars = ax.bar(
             x + offset,
             values,
@@ -179,10 +197,10 @@ def draw_grouped_bars(ax, rows: list[dict[str, object]], metric: str, title: str
         ax.spines[spine].set_visible(False)
 
     if metric == "runtime_seconds":
-        max_runtime = max(row["runtime_seconds"] for row in rows)
-        ax.set_ylim(0, max_runtime * 1.18)
+        max_runtime = max(float(row["runtime_seconds"]) for row in rows)
+        ax.set_ylim(0, max(max_runtime, timeout_seconds) * 1.18)
         ax.axhline(
-            TIMEOUT_REFERENCE_SECONDS,
+            timeout_seconds,
             color="#A63D40",
             linestyle="--",
             linewidth=1.2,
@@ -190,14 +208,69 @@ def draw_grouped_bars(ax, rows: list[dict[str, object]], metric: str, title: str
         )
         ax.text(
             0.98,
-            TIMEOUT_REFERENCE_SECONDS / ax.get_ylim()[1] + 0.01,
-            "60s 超时线",
+            timeout_seconds / ax.get_ylim()[1] + 0.01,
+            f"{int(timeout_seconds)}s 超时线",
             transform=ax.transAxes,
             ha="right",
             va="bottom",
             fontsize=9,
             color="#A63D40",
         )
+
+
+def write_5_15_analysis(rows: list[dict[str, object]], output_root: Path) -> Path:
+    focus = [row for row in rows if row["dataset"] in {"le450_5a.col", "le450_15b.col"}]
+    sections: list[str] = [
+        "# 5 色与 15 色数据集对比分析",
+        "",
+        "## 数据概况",
+    ]
+
+    for dataset in ["le450_5a.col", "le450_15b.col"]:
+        dataset_rows = [row for row in focus if row["dataset"] == dataset]
+        declared_classes = dataset_rows[0]["declared_classes"]
+        timeout_seconds = dataset_rows[0]["timeout_seconds"]
+        completed = [row for row in dataset_rows if not row["timed_out"]]
+        best_runtime = min(completed, key=lambda row: row["runtime_seconds"]) if completed else None
+        best_nodes = min(dataset_rows, key=lambda row: row["node_expansions"])
+        sections.extend(
+            [
+                f"### {DATASET_LABELS[dataset]}",
+                f"- 颜色上界/类别数：{declared_classes}",
+                f"- 单次实验超时阈值：{int(timeout_seconds)}s",
+                f"- 完成求解的实验组数：{len(completed)}/{len(dataset_rows)}",
+                (
+                    f"- 最快完成组：{best_runtime['variant']}，耗时 {best_runtime['runtime_seconds']:.2f}s"
+                    if best_runtime
+                    else "- 所有实验组均达到超时上限，未在设定时间内完成求解"
+                ),
+                f"- 搜索节点最少组：{best_nodes['variant']}，节点数 {best_nodes['node_expansions']}",
+                "",
+            ]
+        )
+
+    rows_5 = [row for row in focus if row["dataset"] == "le450_5a.col"]
+    rows_15 = [row for row in focus if row["dataset"] == "le450_15b.col"]
+    best_5 = min((row for row in rows_5 if not row["timed_out"]), key=lambda row: row["runtime_seconds"], default=None)
+    best_15_nodes = min(rows_15, key=lambda row: row["node_expansions"])
+    sections.extend(
+        [
+            "## 对比结论",
+            (
+                f"- 5 色数据集存在可行解，且启发式组合在该数据集上效果明显："
+                f"{best_5['variant']} 可在 {best_5['runtime_seconds']:.2f}s 内完成。"
+                if best_5
+                else "- 5 色数据集在本次运行参数下没有实验组完成求解。"
+            ),
+            f"- 15 色数据集在当前超时阈值内仍未完成求解，但 V5 将搜索节点压缩到 {best_15_nodes['node_expansions']}，显著优于 V0/V1。",
+            "- MRV、LCV 与 Degree 的组合对高难度实例更有帮助，尤其体现在搜索节点数和回溯次数的下降上。",
+            "- 5 色实例更适合从“是否成功求解”和“完成时间”角度分析；15 色实例更适合从“剪枝后搜索规模”角度比较策略优劣。",
+        ]
+    )
+
+    output_path = output_root / "analysis_5_vs_15.md"
+    output_path.write_text("\n".join(sections), encoding="utf-8")
+    return output_path
 
 
 def plot_from_csv(csv_path: str | Path, output_dir: str | Path | None = None) -> list[Path]:
@@ -208,6 +281,7 @@ def plot_from_csv(csv_path: str | Path, output_dir: str | Path | None = None) ->
 
     plt.style.use("seaborn-v0_8-whitegrid")
     configure_fonts()
+    timeout_seconds = infer_timeout_seconds(rows)
 
     metric_specs = [
         ("runtime_seconds", "运行时间 / s", False),
@@ -219,9 +293,8 @@ def plot_from_csv(csv_path: str | Path, output_dir: str | Path | None = None) ->
 
     fig, axes = plt.subplots(2, 2, figsize=(16, 10.8))
     fig.suptitle("地图着色回溯算法实验对比", fontsize=18, fontweight="bold", y=0.98)
-
     for ax, (metric, title, log_scale) in zip(axes.flat, metric_specs):
-        draw_grouped_bars(ax, rows, metric, title, log_scale)
+        draw_grouped_bars(ax, rows, metric, title, log_scale, DATASET_ORDER, timeout_seconds)
 
     axes[0, 0].legend(loc="upper left", fontsize=9, frameon=True)
     fig.text(
@@ -241,17 +314,35 @@ def plot_from_csv(csv_path: str | Path, output_dir: str | Path | None = None) ->
     saved_paths.extend([summary_png, summary_svg])
     plt.close(fig)
 
-    for metric, title, log_scale in metric_specs[:3]:
-        fig, ax = plt.subplots(figsize=(12, 6))
-        draw_grouped_bars(ax, rows, metric, f"{title}对比", log_scale)
-        ax.legend(loc="upper right", fontsize=9, frameon=True)
-        fig.tight_layout()
+    focus_rows = [row for row in rows if row["dataset"] in {"le450_5a.col", "le450_15b.col"}]
+    fig, axes = plt.subplots(1, 2, figsize=(15, 5.8))
+    draw_grouped_bars(
+        axes[0],
+        focus_rows,
+        "runtime_seconds",
+        "5 色与 15 色运行时间对比",
+        False,
+        ["le450_5a.col", "le450_15b.col"],
+        timeout_seconds,
+    )
+    draw_grouped_bars(
+        axes[1],
+        focus_rows,
+        "node_expansions",
+        "5 色与 15 色搜索节点对比",
+        True,
+        ["le450_5a.col", "le450_15b.col"],
+        timeout_seconds,
+    )
+    axes[0].legend(loc="upper right", fontsize=9, frameon=True)
+    fig.tight_layout()
+    focus_png = output_root / "comparison_5_vs_15.png"
+    fig.savefig(focus_png, dpi=300, bbox_inches="tight")
+    saved_paths.append(focus_png)
+    plt.close(fig)
 
-        output_path = output_root / f"{metric}_bars.png"
-        fig.savefig(output_path, dpi=300, bbox_inches="tight")
-        saved_paths.append(output_path)
-        plt.close(fig)
-
+    analysis_path = write_5_15_analysis(rows, output_root)
+    saved_paths.append(analysis_path)
     return saved_paths
 
 

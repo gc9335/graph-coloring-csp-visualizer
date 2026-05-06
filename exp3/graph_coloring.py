@@ -51,6 +51,9 @@ class SolveResult:
     used_colors: int
     max_depth: int
     overhead_ms_per_node: float
+    solutions_found: int
+    solution_target: int
+    stopped_on_target: bool
 
 
 def load_dimacs_graph(filepath: str | Path) -> GraphData:
@@ -140,27 +143,42 @@ class GraphColoringSolver:
         self.max_depth = 0
         self._deadline = 0.0
         self._timed_out = False
+        self._solutions_found = 0
+        self._solution_target = 1
+        self._stop_requested = False
+        self._first_solution_colors: list[int] | None = None
 
-    def solve(self, variant: Variant, timeout_seconds: float = 60.0) -> SolveResult:
+    def solve(
+        self,
+        variant: Variant,
+        timeout_seconds: float = 60.0,
+        max_solutions: int = 1,
+    ) -> SolveResult:
         self.colors = [0] * self.n
         self.domains = [set(range(1, self.m + 1)) for _ in range(self.n)]
         self.backtracks = 0
         self.node_expansions = 0
         self.max_depth = 0
         self._timed_out = False
+        self._solutions_found = 0
+        self._solution_target = max(1, max_solutions)
+        self._stop_requested = False
+        self._first_solution_colors = None
 
         started_at = perf_counter()
         self._deadline = started_at + timeout_seconds
         clique_lb = greedy_clique_lower_bound(self.adj)
         pruned_by_clique = variant.clique_bound and clique_lb > self.m
-        success = False if pruned_by_clique else self._search(variant, depth=0)
+        if not pruned_by_clique:
+            self._search(variant, depth=0)
         runtime_seconds = perf_counter() - started_at
-        used_colors = len({color for color in self.colors if color != 0})
+        solution_colors = self._first_solution_colors[:] if self._first_solution_colors is not None else self.colors[:]
+        used_colors = len({color for color in solution_colors if color != 0})
         overhead_ms = (runtime_seconds / max(1, self.node_expansions)) * 1000.0
 
         return SolveResult(
-            success=success,
-            colors=self.colors[:],
+            success=self._solutions_found > 0,
+            colors=solution_colors,
             node_expansions=self.node_expansions,
             backtracks=self.backtracks,
             runtime_seconds=runtime_seconds,
@@ -170,19 +188,31 @@ class GraphColoringSolver:
             used_colors=used_colors,
             max_depth=self.max_depth,
             overhead_ms_per_node=overhead_ms,
+            solutions_found=self._solutions_found,
+            solution_target=self._solution_target,
+            stopped_on_target=self._solutions_found >= self._solution_target,
         )
 
     def color_order_for_testing(self, node: int, variant: Variant) -> list[int]:
         return self._ordered_colors(node, variant)
 
     def _search(self, variant: Variant, depth: int) -> bool:
+        if self._stop_requested:
+            return True
         if perf_counter() > self._deadline:
             self._timed_out = True
+            self._stop_requested = True
             return False
 
         node = self._choose_node(variant)
         if node is None:
-            return True
+            self._solutions_found += 1
+            if self._first_solution_colors is None:
+                self._first_solution_colors = self.colors[:]
+            if self._solutions_found >= self._solution_target:
+                self._stop_requested = True
+                return True
+            return False
 
         self.node_expansions += 1
         self.max_depth = max(self.max_depth, depth)
@@ -205,15 +235,17 @@ class GraphColoringSolver:
                         ok = False
                         break
 
-            if ok and self._search(variant, depth + 1):
-                return True
+            if ok:
+                should_stop = self._search(variant, depth + 1)
+                if should_stop:
+                    return True
 
             for neighbor, domain in reversed(previous_domains):
                 self.domains[neighbor] = domain
             self.colors[node] = 0
             self.backtracks += 1
 
-            if self._timed_out:
+            if self._timed_out or self._stop_requested:
                 return False
 
         return False
@@ -274,7 +306,12 @@ def run_variant_on_file(
     color_limit: int,
     variant: Variant,
     timeout_seconds: float = 60.0,
+    max_solutions: int = 1,
 ) -> tuple[GraphData, SolveResult]:
     graph = load_dimacs_graph(dataset_path)
     solver = GraphColoringSolver(graph.adj_list, color_limit)
-    return graph, solver.solve(variant, timeout_seconds=timeout_seconds)
+    return graph, solver.solve(
+        variant,
+        timeout_seconds=timeout_seconds,
+        max_solutions=max_solutions,
+    )
