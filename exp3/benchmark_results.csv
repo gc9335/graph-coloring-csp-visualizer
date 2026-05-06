@@ -1,0 +1,19 @@
+dataset,declared_classes,variant,name,success,timed_out,pruned_by_clique,clique_lower_bound,used_colors,node_expansions,backtracks,runtime_seconds,overhead_ms_per_node
+le450_5a.col,5,V0,OurBase,False,True,False,5,0,824902,824902,60.000071,0.072736
+le450_5a.col,5,V1,OurBase + FC,False,True,False,5,0,621039,1308499,60.000285,0.096613
+le450_5a.col,5,V2,OurBase + FC + MRV,False,True,False,5,0,10935,12022,60.000183,5.486985
+le450_5a.col,5,V3,OurBase + FC + MRV + LCV,False,True,False,5,0,11777,12834,60.000943,5.094756
+le450_5a.col,5,V4,OurBase + FC + MRV + Degree,False,True,False,5,0,11692,12835,60.002389,5.131918
+le450_5a.col,5,V5,OurBase + FC + MRV + Degree + LCV,False,True,False,5,0,9886,10771,60.006721,6.069869
+le450_15b.col,15,V0,OurBase,False,True,False,15,0,306046,306046,60.000156,0.196049
+le450_15b.col,15,V1,OurBase + FC,False,True,False,15,0,664640,1068964,60.000964,0.090276
+le450_15b.col,15,V2,OurBase + FC + MRV,False,True,False,15,0,37915,43772,60.001173,1.582518
+le450_15b.col,15,V3,OurBase + FC + MRV + LCV,False,True,False,15,0,27079,31438,60.002628,2.215836
+le450_15b.col,15,V4,OurBase + FC + MRV + Degree,False,True,False,15,0,35389,40679,60.00157,1.695486
+le450_15b.col,15,V5,OurBase + FC + MRV + Degree + LCV,False,True,False,15,0,24811,28689,60.001687,2.41835
+le450_25a.col,25,V0,OurBase,True,False,False,25,25,621,171,0.116692,0.18791
+le450_25a.col,25,V1,OurBase + FC,True,False,False,25,25,521,91,0.10484,0.201229
+le450_25a.col,25,V2,OurBase + FC + MRV,True,False,False,25,25,450,0,4.065175,9.033722
+le450_25a.col,25,V3,OurBase + FC + MRV + LCV,True,False,False,25,25,450,0,4.223116,9.384703
+le450_25a.col,25,V4,OurBase + FC + MRV + Degree,True,False,False,25,25,450,0,4.148819,9.219598
+le450_25a.col,25,V5,OurBase + FC + MRV + Degree + LCV,True,False,False,25,25,450,0,4.175364,9.278587
