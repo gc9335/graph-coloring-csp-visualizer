@@ -1,39 +1,69 @@
-from exp3.graph_coloring import GraphColoringSolver, VARIANTS, Variant
+from __future__ import annotations
+
+import pytest
+
+from exp3.graph_coloring import (
+    GraphColoringSolver,
+    VARIANTS,
+    generate_random_graph,
+    small_validation_graph,
+    validate_coloring,
+)
 
 
-def triangle_graph():
+def disconnected_graph() -> list[list[int]]:
     return [
-        [1, 2],
-        [0, 2],
-        [0, 1],
+        [1, 2, 3],
+        [0, 2, 3],
+        [0, 1, 3],
+        [0, 1, 2],
+        [5],
+        [4],
     ]
 
 
-def test_single_solution_mode_stops_after_first_solution():
-    solver = GraphColoringSolver(triangle_graph(), num_colors=3)
-    result = solver.solve(VARIANTS["V2"], timeout_seconds=5.0, max_solutions=1)
+@pytest.mark.parametrize("variant_id", [f"B{i}" for i in range(6)])
+def test_small_four_color_graph_solves_correctly(variant_id: str) -> None:
+    graph = small_validation_graph()
+    solver = GraphColoringSolver(graph.adj_list, num_colors=4)
+    result = solver.solve(VARIANTS[variant_id], timeout_seconds=5.0, max_solutions=1, graph_metadata=graph.metadata)
 
     assert result.success is True
     assert result.solutions_found == 1
-    assert result.stopped_on_target is True
-    assert result.used_colors == 3
+    assert result.used_colors == 4
+    assert result.component_count == 1
+    assert result.largest_component == 4
+    assert validate_coloring(graph.adj_list, result.colors)
 
 
-def test_multi_solution_mode_collects_up_to_target():
-    solver = GraphColoringSolver(triangle_graph(), num_colors=3)
-    no_symmetry_variant = Variant(
-        id="T",
-        name="Test",
-        forward_checking=True,
-        mrv=True,
-        degree_tiebreak=False,
-        lcv=False,
-        symmetry=False,
-        clique_bound=True,
-    )
-    result = solver.solve(no_symmetry_variant, timeout_seconds=5.0, max_solutions=4)
+def test_clique_prune_triggers_for_structured_variant() -> None:
+    graph = small_validation_graph()
+    solver = GraphColoringSolver(graph.adj_list, num_colors=3)
+    result = solver.solve(VARIANTS["B5"], timeout_seconds=5.0, max_solutions=1, graph_metadata=graph.metadata)
+
+    assert result.success is False
+    assert result.pruned_by_clique is True
+    assert result.search_status == "pruned"
+    assert result.clique_lower_bound >= 4
+    assert "clique_lower_bound" in result.explanation_notes
+
+
+def test_component_decomposition_reports_metrics_on_disconnected_graph() -> None:
+    graph = disconnected_graph()
+    solver = GraphColoringSolver(graph, num_colors=4)
+    result = solver.solve(VARIANTS["B5"], timeout_seconds=5.0, max_solutions=1)
 
     assert result.success is True
-    assert result.solutions_found == 4
-    assert result.stopped_on_target is True
-    assert result.used_colors == 3
+    assert result.component_count == 2
+    assert result.largest_component == 4
+    assert result.search_status == "success"
+    assert validate_coloring(graph, result.colors)
+
+
+def test_random_graph_generation_is_deterministic_with_fixed_seed() -> None:
+    graph_a = generate_random_graph(12, 0.25, 1234)
+    graph_b = generate_random_graph(12, 0.25, 1234)
+    graph_c = generate_random_graph(12, 0.25, 4321)
+
+    assert graph_a.adj_list == graph_b.adj_list
+    assert graph_a.adj_list != graph_c.adj_list

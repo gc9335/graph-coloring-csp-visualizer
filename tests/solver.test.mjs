@@ -52,18 +52,22 @@ function expectSolvedTrace(variantId) {
   return trace;
 }
 
-assert.equal(Object.keys(VARIANTS).length, 6, "There should be six visualization variants");
+const preferredVariantIds = ["B0", "B1", "B2", "B3", "B4", "B5"].filter((variantId) => variantId in VARIANTS);
+const legacyVariantIds = ["V0", "V1", "V2", "V3", "V4", "V5"].filter((variantId) => variantId in VARIANTS);
+const variantIds = preferredVariantIds.length === 6 ? preferredVariantIds : legacyVariantIds;
 
-for (const variantId of Object.keys(VARIANTS)) {
+assert.equal(variantIds.length, 6, "There should be six visualization variants");
+
+for (const variantId of variantIds) {
   expectSolvedTrace(variantId);
 }
 
-for (const variantId of ["V1", "V2", "V3", "V4", "V5"]) {
+for (const variantId of variantIds.slice(1)) {
   const trace = expectSolvedTrace(variantId);
   assert.ok(eventTypes(trace).has("domain-prune"), `${variantId} should surface FC domain pruning`);
 }
 
-for (const variantId of ["V2", "V4", "V5"]) {
+for (const variantId of [variantIds[2], variantIds[4], variantIds[5]]) {
   const trace = expectSolvedTrace(variantId);
   assert.ok(
     trace.events.some(
@@ -73,7 +77,7 @@ for (const variantId of ["V2", "V4", "V5"]) {
   );
 }
 
-for (const variantId of ["V3", "V5"]) {
+for (const variantId of [variantIds[3], variantIds[5]]) {
   const trace = expectSolvedTrace(variantId);
   assert.ok(
     trace.events.some(
@@ -83,7 +87,7 @@ for (const variantId of ["V3", "V5"]) {
   );
 }
 
-for (const variantId of Object.keys(VARIANTS)) {
+for (const variantId of variantIds) {
   const trace = runVariant(impossibleClique, variantId, 3);
   assert.equal(trace.success, false, `${variantId} should reject K4 under 3 colors`);
   assert.ok(eventTypes(trace).has("clique-prune"), `${variantId} should report the clique lower-bound prune`);
