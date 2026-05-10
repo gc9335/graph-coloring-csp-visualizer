@@ -52,9 +52,7 @@ function expectSolvedTrace(variantId) {
   return trace;
 }
 
-const preferredVariantIds = ["B0", "B1", "B2", "B3", "B4", "B5"].filter((variantId) => variantId in VARIANTS);
-const legacyVariantIds = ["V0", "V1", "V2", "V3", "V4", "V5"].filter((variantId) => variantId in VARIANTS);
-const variantIds = preferredVariantIds.length === 6 ? preferredVariantIds : legacyVariantIds;
+const variantIds = ["B0", "B1", "B2", "B3", "B4", "B5"].filter((variantId) => variantId in VARIANTS);
 
 assert.equal(variantIds.length, 6, "There should be six visualization variants");
 
@@ -98,3 +96,5 @@ for (const variantId of variantIds) {
 }
 
 console.log("solver.test.mjs passed");
+
+

@@ -58,7 +58,7 @@ const eventLabels = {
 
 const state = {
   graphId: SAMPLE_GRAPHS[0].id,
-  variantId: "V5",
+  variantId: "B5",
   colorLimit: SAMPLE_GRAPHS[0].colorLimit,
   speed: 720,
   nodeCount: 10,

@@ -64,8 +64,8 @@ export const COLOR_PALETTE = [
 ];
 
 export const VARIANTS = {
-  V0: makeVariant(
-    "V0",
+  B0: makeVariant(
+    "B0",
     "Base Backtracking",
     "基础回溯搜索",
     "#2f6690",
@@ -77,8 +77,8 @@ export const VARIANTS = {
       space: "主要消耗在递归栈与邻接结构本身，不需要维护额外域状态。",
     },
   ),
-  V1: makeVariant(
-    "V1",
+  B1: makeVariant(
+    "B1",
     "Backtracking + Forward Checking",
     "在 B0 基础上加入前向检查",
     "#cc5a71",
@@ -90,8 +90,8 @@ export const VARIANTS = {
       space: "需要维护 O(NM) 的域状态，并记录每层传播日志以恢复现场。",
     },
   ),
-  V2: makeVariant(
-    "V2",
+  B2: makeVariant(
+    "B2",
     "B1 + MRV",
     "在 B1 基础上加入最小剩余值变量选择",
     "#f28f3b",
@@ -103,8 +103,8 @@ export const VARIANTS = {
       space: "与 FC 相同，另加少量 MRV 候选统计。",
     },
   ),
-  V3: makeVariant(
-    "V3",
+  B3: makeVariant(
+    "B3",
     "B2 + Degree Tie-Break",
     "在 B2 基础上加入 Degree 作为平局选择策略",
     "#7a306c",
@@ -112,12 +112,12 @@ export const VARIANTS = {
     {
       core: "当多个节点的剩余可选颜色数相同，优先选择静态度数更高的节点，让约束传播尽快覆盖更多邻居。",
       visual: "MRV 候选会先并排出现，再由 Degree 标记打破平局，突出“同域大小下谁更关键”。",
-      time: "相比 V2 只多出很小的平局比较开销，但在稠密图上通常能进一步减少无效回溯。",
-      space: "与 V2 基本一致，只额外保留少量度数元数据。",
+      time: "相比 B2 只多出很小的平局比较开销，但在稠密图上通常能进一步减少无效回溯。",
+      space: "与 B2 基本一致，只额外保留少量度数元数据。",
     },
   ),
-  V4: makeVariant(
-    "V4",
+  B4: makeVariant(
+    "B4",
     "B3 + LCV",
     "在 B3 基础上加入最小约束值排序",
     "#1c7c54",
@@ -125,12 +125,12 @@ export const VARIANTS = {
     {
       core: "在 MRV 和 Degree 选定节点后，再让对邻居约束最小的颜色优先尝试，尽量把成功分支提到前面。",
       visual: "每个候选颜色都会展示影响分数，能够直接看出 LCV 如何改变试色顺序。",
-      time: "相比 V3 多出颜色影响评估成本，但常能显著压缩搜索树深处的回溯次数。",
-      space: "与 V3 相同，另外需要暂存颜色评分结果。",
+      time: "相比 B3 多出颜色影响评估成本，但常能显著压缩搜索树深处的回溯次数。",
+      space: "与 B3 相同，另外需要暂存颜色评分结果。",
     },
   ),
-  V5: makeVariant(
-    "V5",
+  B5: makeVariant(
+    "B5",
     "B4 + Structured Pruning",
     "在 B4 基础上加入结构化剪枝",
     "#0b4f6c",
@@ -505,3 +505,4 @@ export function runVariant(graphOrId, variantId, requestedColorLimit) {
 export function runAllVariants(graphOrId, colorLimit) {
   return Object.keys(VARIANTS).map((variantId) => runVariant(graphOrId, variantId, colorLimit));
 }
+
