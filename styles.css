@@ -147,6 +147,7 @@ body {
 
 .variant-card b {
   font-size: 1.2rem;
+  color: #111111;
 }
 
 .variant-card small {
@@ -158,6 +159,7 @@ body {
   margin: 0;
   font-size: 0.92rem;
   line-height: 1.55;
+  color: #111111;
 }
 
 .control-panel {
