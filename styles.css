@@ -126,6 +126,8 @@ body {
   border-radius: 20px;
   border: 1px solid var(--line);
   background: rgba(255, 250, 241, 0.82);
+  color: var(--ink);
+  text-align: left;
   cursor: pointer;
   transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
 }
