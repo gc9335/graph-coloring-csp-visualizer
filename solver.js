@@ -1,10 +1,15 @@
 const BASE_LINES = [
   ["init-order", "order <- vertices sorted by descending degree"],
-  ["clique-bound", "if cliqueLowerBound(G) > M then return FAIL"],
 ];
 
 function pseudocodeFor(flags) {
   const lines = [...BASE_LINES];
+  if (flags.cliqueBound) {
+    lines.push(["clique-bound", "if cliqueLowerBound(G) > M then return FAIL"]);
+  }
+  if (flags.componentDecomposition) {
+    lines.push(["decompose", "split graph into connected components when beneficial"]);
+  }
   if (flags.mrv) {
     lines.push([
       "select-node",
@@ -17,7 +22,11 @@ function pseudocodeFor(flags) {
   }
   lines.push([
     "order-colors",
-    flags.lcv ? "colors <- order by least constraining value" : "colors <- usedColorsFirst(v) + oneNewColorBySymmetry(v)",
+    flags.lcv
+      ? "colors <- order by least constraining value"
+      : flags.symmetryBreaking
+        ? "colors <- usedColorsFirst(v) + oneNewColorBySymmetry(v)"
+        : "colors <- all feasible colors in numeric order",
   ]);
   lines.push(["try-color", "for c in colors do"]);
   lines.push(["assign-color", "  if safe(v, c) then assign v <- c"]);
@@ -57,23 +66,23 @@ export const COLOR_PALETTE = [
 export const VARIANTS = {
   V0: makeVariant(
     "V0",
-    "OurBase",
-    "顶点度数排序 + 颜色对称性 + 团下界 + 已用颜色数",
+    "Base Backtracking",
+    "基础回溯搜索",
     "#2f6690",
-    { forwardChecking: false, mrv: false, degreeTieBreak: false, lcv: false },
+    { forwardChecking: false, mrv: false, degreeTieBreak: false, lcv: false, symmetryBreaking: false, cliqueBound: false, componentDecomposition: false },
     {
-      core: "按静态度数顺序展开搜索，颜色优先复用已出现的颜色，只保留一个“新颜色代表”分支以消除标签对称。",
-      visual: "突出静态排序、已用颜色数和新颜色首次出现的时刻；若最大团已超过颜色上限，则整棵树被开局剪掉。",
-      time: "最坏仍为 O(M^N)。排序和颜色对称主要减少等价分支，团下界负责提前识别显然无解实例。",
-      space: "递归栈 O(N) 加邻接结构 O(N + E)。不做 FC 时无须长期维护完整域矩阵。",
+      core: "从当前节点开始逐色试探，遇到冲突就回溯，不额外做前向检查、变量排序或取值排序。",
+      visual: "适合作为基线版本观察搜索树如何迅速膨胀，以及回溯是怎样逐层展开的。",
+      time: "最坏情况下仍是指数级搜索；因为没有额外启发式，单步开销最低，但总搜索量通常最大。",
+      space: "主要消耗在递归栈与邻接结构本身，不需要维护额外域状态。",
     },
   ),
   V1: makeVariant(
     "V1",
-    "OurBase + FC",
-    "前向检查 Forward Checking",
+    "Backtracking + Forward Checking",
+    "在 B0 基础上加入前向检查",
     "#cc5a71",
-    { forwardChecking: true, mrv: false, degreeTieBreak: false, lcv: false },
+    { forwardChecking: true, mrv: false, degreeTieBreak: false, lcv: false, symmetryBreaking: false, cliqueBound: false, componentDecomposition: false },
     {
       core: "每次着色后主动删除所有未着色邻居域中的该颜色，若有邻居域被削空则立即回溯。",
       visual: "让邻居域矩阵实时收缩，被删掉的颜色单元闪烁，清晰展示 FC 的约束传播。",
@@ -83,10 +92,10 @@ export const VARIANTS = {
   ),
   V2: makeVariant(
     "V2",
-    "OurBase + FC + MRV",
-    "最少剩余值 MRV",
+    "B1 + MRV",
+    "在 B1 基础上加入最小剩余值变量选择",
     "#f28f3b",
-    { forwardChecking: true, mrv: true, degreeTieBreak: false, lcv: false },
+    { forwardChecking: true, mrv: true, degreeTieBreak: false, lcv: false, symmetryBreaking: false, cliqueBound: false, componentDecomposition: false },
     {
       core: "遵循 Fail-First，动态选择当前可用颜色最少的节点，让冲突更早暴露。",
       visual: "每次选点前展示所有未着色节点的域大小，最终选中的“最紧节点”会被强调。",
@@ -96,41 +105,41 @@ export const VARIANTS = {
   ),
   V3: makeVariant(
     "V3",
-    "OurBase + FC + MRV + LCV",
-    "最少约束值 LCV",
+    "B2 + Degree Tie-Break",
+    "在 B2 基础上加入 Degree 作为平局选择策略",
     "#7a306c",
-    { forwardChecking: true, mrv: true, degreeTieBreak: false, lcv: true },
+    { forwardChecking: true, mrv: true, degreeTieBreak: true, lcv: false, symmetryBreaking: false, cliqueBound: false, componentDecomposition: false },
     {
-      core: "先用 MRV 选变量，再用 LCV 让“扣减邻居域最少”的颜色先试，尽早命中成功分支。",
-      visual: "每个候选颜色都显示影响值，时间轴能看出不同颜色导致的域收缩差异。",
-      time: "每步在 O(N) 选点之外，还要做 O(Md) 的颜色影响评估，最坏上界不变。",
-      space: "与 V2 相同，另加 O(M) 的颜色评分数组。",
+      core: "当多个节点的剩余可选颜色数相同，优先选择静态度数更高的节点，让约束传播尽快覆盖更多邻居。",
+      visual: "MRV 候选会先并排出现，再由 Degree 标记打破平局，突出“同域大小下谁更关键”。",
+      time: "相比 V2 只多出很小的平局比较开销，但在稠密图上通常能进一步减少无效回溯。",
+      space: "与 V2 基本一致，只额外保留少量度数元数据。",
     },
   ),
   V4: makeVariant(
     "V4",
-    "OurBase + FC + MRV + Degree",
-    "MRV 平局用 Degree 打破",
+    "B3 + LCV",
+    "在 B3 基础上加入最小约束值排序",
     "#1c7c54",
-    { forwardChecking: true, mrv: true, degreeTieBreak: true, lcv: false },
+    { forwardChecking: true, mrv: true, degreeTieBreak: true, lcv: true, symmetryBreaking: false, cliqueBound: false, componentDecomposition: false },
     {
-      core: "当多个节点同为最小域时，优先选择静态度数更高的节点，让传播尽快覆盖更多邻居。",
-      visual: "MRV 平局节点先并排出现，再由度数徽标决出下一步处理对象。",
-      time: "在 V2 基础上多做一次平局比较，理论最坏复杂度不变，额外成本很小。",
-      space: "与 V2 基本一致，只多保留少量度数元数据。",
+      core: "在 MRV 和 Degree 选定节点后，再让对邻居约束最小的颜色优先尝试，尽量把成功分支提到前面。",
+      visual: "每个候选颜色都会展示影响分数，能够直接看出 LCV 如何改变试色顺序。",
+      time: "相比 V3 多出颜色影响评估成本，但常能显著压缩搜索树深处的回溯次数。",
+      space: "与 V3 相同，另外需要暂存颜色评分结果。",
     },
   ),
   V5: makeVariant(
     "V5",
-    "OurBase + FC + MRV + Degree + LCV",
-    "完整启发式闭环",
+    "B4 + Structured Pruning",
+    "在 B4 基础上加入结构化剪枝",
     "#0b4f6c",
-    { forwardChecking: true, mrv: true, degreeTieBreak: true, lcv: true },
+    { forwardChecking: true, mrv: true, degreeTieBreak: true, lcv: true, symmetryBreaking: true, cliqueBound: true, componentDecomposition: true },
     {
-      core: "MRV 负责尽早失败，Degree 解决平局，LCV 负责尽早成功，形成完整的变量与取值协同。",
-      visual: "同一帧中同时展示 MRV、Degree、LCV 三类提示，适合作为六个版本的总对照页。",
-      time: "单步开销约为 O(N + Md + d)，最坏仍是指数级，但通常拥有最小的实际搜索树。",
-      space: "总体由 O(NM) 的域矩阵主导，另含候选节点和颜色评分信息。",
+      core: "保留 B4 的启发式栈，并进一步加入颜色对称性剪枝、团下界剪枝和连通分量分解，集中消除结构性冗余。",
+      visual: "除了 MRV、Degree、LCV 外，还会额外强调“开局下界剪枝”和“等价颜色分支合并”等结构化优化来源。",
+      time: "单步分析开销最高，但通常能最有效地缩短整体搜索路径，尤其适合大规模困难实例。",
+      space: "除域矩阵与评分信息外，还需要保存结构化剪枝相关的中间状态。",
     },
   ),
 };
@@ -303,7 +312,7 @@ export function runVariant(graphOrId, variantId, requestedColorLimit) {
     meta: { staticOrder: model.staticOrder.map((index) => model.nodes[index].id), cliqueSize },
   });
 
-  if (cliqueSize > colorLimit) {
+  if (variant.cliqueBound && cliqueSize > colorLimit) {
     metrics.prunedBranches += 1;
     metrics.runtimeMs = now() - startedAt;
     event("clique-prune", {
@@ -340,11 +349,14 @@ export function runVariant(graphOrId, variantId, requestedColorLimit) {
 
   function colorOrder(nodeIndex) {
     const avail = availableColors(model, assignment, domains, nodeIndex, palette);
-    const used = usedColorsOf(assignment);
-    const oldColors = avail.filter((color) => used.has(color)).sort((a, b) => a - b);
-    const fresh = avail.filter((color) => !used.has(color)).sort((a, b) => a - b);
-    let ordered = [...oldColors];
-    if (fresh.length) ordered.push(fresh[0]);
+    let ordered = [...avail].sort((a, b) => a - b);
+    if (variant.symmetryBreaking) {
+      const used = usedColorsOf(assignment);
+      const oldColors = ordered.filter((color) => used.has(color));
+      const fresh = ordered.filter((color) => !used.has(color));
+      ordered = [...oldColors];
+      if (fresh.length) ordered.push(fresh[0]);
+    }
     if (!variant.lcv) {
       metrics.prunedBranches += Math.max(0, palette.length - ordered.length);
       return {

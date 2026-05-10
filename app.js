@@ -291,8 +291,10 @@ function renderHeroMetrics() {
   const heroItems = [
     ["当前算法", `${state.variantId}`, activeVariant().label],
     ["当前图", activeGraph().name, activeGraph().description],
-    ["回放事件数", String(state.trace.events.length), "来自本次求解生成的完整 trace"],
-    ["回溯次数", String(state.trace.metrics.backtracks), state.trace.success ? "找到可行着色" : "当前颜色上限无解"],
+    ["回放事件数", String(state.trace.events.length), "用于教学回放的事件总数，不等于搜索代价"],
+    ["搜索节点数", String(state.trace.metrics.searchNodes), "真正进入搜索过程的状态数，更适合横向比较效率"],
+    ["试色次数", String(state.trace.metrics.colorTrials), "实际尝试把某个颜色赋给某个节点的次数"],
+    ["回溯次数", String(state.trace.metrics.backtracks), state.trace.success ? "撤销赋值并改试其他分支的次数" : "当前颜色上限下未找到可行着色"],
   ];
   els.heroMetrics.innerHTML = heroItems
     .map(

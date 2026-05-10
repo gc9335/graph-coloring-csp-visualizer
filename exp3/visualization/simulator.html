@@ -54,9 +54,9 @@
                 <option value="v0">V0: 基础回溯 (Baseline)</option>
                 <option value="v1">V1: 向前检查 (FC)</option>
                 <option value="v2">V2: FC + MRV</option>
-                <option value="v3">V3: FC + MRV + LCV</option>
-                <option value="v4">V4: FC + MRV + Degree</option>
-                <option value="v5">V5: 终极组合 (Ultimate)</option>
+                <option value="v3">V3: FC + MRV + Degree</option>
+                <option value="v4">V4: FC + MRV + Degree + LCV</option>
+                <option value="v5">V5: FC + MRV + Degree + LCV + Structured Pruning</option>
             </select>
         </div>
         <div class="control-group">
@@ -119,9 +119,9 @@
         v0: { oh: 0.01, nodes: 1000000, color: '#cbd5e1', title: 'V0: 基础回溯', desc: '典型的“四肢发达，头脑简单”。单步开销极低，但没有任何剪枝，搜索空间呈指数级爆炸，在处理 450 个节点时极易卡死（Timeout）。' },
         v1: { oh: 0.05, nodes: 500000, color: '#fca5a5', title: 'V1: 向前检查 (FC)', desc: '引入了最基础的约束传播。虽然单步开销略微增加（检查邻居域），但通过提前发现死胡同，节点访问量减少了一半。' },
         v2: { oh: 0.25, nodes: 5000, color: '#93c5fd', title: 'V2: FC + MRV', desc: '性价比之王。通过动态选择可用颜色最少的节点（MRV），单步开销增加到 V1 的 5 倍，但回溯次数暴降 100 倍！这证明了“变量排序”的重要性。' },
-        v3: { oh: 1.20, nodes: 2000, color: '#c4b5fd', title: 'V3: FC + MRV + LCV', desc: '“精打细算”。LCV 排序增加了巨大的开销，因为它需要预演每个颜色对邻居的影响。但在复杂约束下，它能帮助算法直接选中正确分支，进一步压缩节点数。' },
-        v4: { oh: 0.30, nodes: 3500, color: '#fcd34d', title: 'V4: FC + MRV + Degree', desc: '利用静态图论特征。Degree 启发式几乎不增加额外开销，却能有效辅助 MRV 破除平局，是处理稠密图（High Density）的利器。' },
-        v5: { oh: 1.50, nodes: 800, color: '#86efac', title: 'V5: 终极组合', desc: '“谋定而后动”。尽管单步开销是 V0 的百倍以上，但其搜索路径几乎是一条直线。在大规模 NP-Hard 问题中，高阶启发式的代价是值得的。' }
+        v3: { oh: 0.30, nodes: 3500, color: '#c4b5fd', title: 'V3: FC + MRV + Degree', desc: '在 MRV 的基础上，用 Degree 作为平局选择策略。它几乎不增加额外开销，却能优先处理约束更强的节点，常用于进一步减少回溯。' },
+        v4: { oh: 1.20, nodes: 2000, color: '#fcd34d', title: 'V4: FC + MRV + Degree + LCV', desc: '在 V3 的基础上再加入 LCV 排序。虽然单步评估成本更高，但它会优先尝试对邻居影响最小的颜色，从而进一步压缩搜索树。' },
+        v5: { oh: 1.50, nodes: 800, color: '#86efac', title: 'V5: FC + MRV + Degree + LCV + Structured Pruning', desc: '在 V4 基础上加入结构化剪枝，包括颜色对称性剪枝、团下界剪枝和连通分量分解。它的单步分析最重，但通常拥有最短的整体搜索路径。' }
     };
 
     const algoSelect = document.getElementById('algo-select');
