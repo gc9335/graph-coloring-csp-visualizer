@@ -1,0 +1,10 @@
+.tmp/
+.pytest_cache/
+.worktree-main/
+__pycache__/
+*.pyc
+*.pyo
+
+exp3/*.zip
+exp3/__pycache__/
+tests/__pycache__/
