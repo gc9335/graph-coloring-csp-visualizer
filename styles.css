@@ -147,7 +147,6 @@ body {
 
 .variant-card b {
   font-size: 1.2rem;
-  color: #111111;
 }
 
 .variant-card small {
@@ -159,7 +158,6 @@ body {
   margin: 0;
   font-size: 0.92rem;
   line-height: 1.55;
-  color: #111111;
 }
 
 .control-panel {
@@ -481,7 +479,9 @@ button:disabled {
   border-radius: 16px;
   border: 1px solid rgba(29, 36, 51, 0.08);
   background: rgba(255, 255, 255, 0.7);
+  color: var(--ink);
   cursor: pointer;
+  text-align: left;
 }
 
 .timeline-item.active {
@@ -493,6 +493,11 @@ button:disabled {
 .timeline-item span,
 .timeline-item p {
   display: block;
+}
+
+.timeline-item strong {
+  color: var(--ink);
+  line-height: 1.4;
 }
 
 .timeline-item span {
